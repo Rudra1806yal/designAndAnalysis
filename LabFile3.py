@@ -1,304 +1,372 @@
-from docx import Document
-import pandas as pd
+
+# Graphs and Visualizations Comparing Execution Time
+# and Memory Consumption of Sorting and Fibonacci Algorithms
+
+import time
+import tracemalloc
+import random
 import matplotlib.pyplot as plt
 
-# ============================================================
-# LOAD WORD FILE
-# ============================================================
-
-file_path = r"C:\Users\Rudra\OneDrive\Documents\Design and analysis files\lab_file.docx"
-
-doc = Document(file_path)
-
-print("Number of tables:", len(doc.tables))
-
 
 # ============================================================
-# FUNCTION TO CONVERT WORD TABLE TO PANDAS DATAFRAME
+# SORTING ALGORITHMS
 # ============================================================
 
-def read_table(table):
-    data = []
+def bubble_sort(arr):
+    arr = arr.copy()
+    n = len(arr)
 
-    for row in table.rows:
-        values = [cell.text.strip() for cell in row.cells]
+    for i in range(n):
+        swapped = False
 
-        # Ignore completely empty rows
-        if any(values):
-            data.append(values)
+        for j in range(0, n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+                swapped = True
 
-    df = pd.DataFrame(data[1:], columns=data[0])
+        if not swapped:
+            break
 
-    return df
-  # ============================================================
-# READ ALL 6 TABLES
+    return arr
+
+
+def insertion_sort(arr):
+    arr = arr.copy()
+
+    for i in range(1, len(arr)):
+        key = arr[i]
+        j = i - 1
+
+        while j >= 0 and arr[j] > key:
+            arr[j + 1] = arr[j]
+            j -= 1
+
+        arr[j + 1] = key
+
+    return arr
+
+
+def merge_sort(arr):
+    if len(arr) <= 1:
+        return arr.copy()
+
+    mid = len(arr) // 2
+
+    left = merge_sort(arr[:mid])
+    right = merge_sort(arr[mid:])
+
+    result = []
+    i = 0
+    j = 0
+
+    while i < len(left) and j < len(right):
+        if left[i] <= right[j]:
+            result.append(left[i])
+            i += 1
+        else:
+            result.append(right[j])
+            j += 1
+
+    result.extend(left[i:])
+    result.extend(right[j:])
+
+    return result
+
+
+def quick_sort(arr):
+    if len(arr) <= 1:
+        return arr.copy()
+
+    pivot = arr[len(arr) // 2]
+
+    left = [x for x in arr if x < pivot]
+    middle = [x for x in arr if x == pivot]
+    right = [x for x in arr if x > pivot]
+
+    return quick_sort(left) + middle + quick_sort(right)
+
+
+# ============================================================
+# FIBONACCI ALGORITHMS
 # ============================================================
 
-tables = []
+def fibonacci_recursive(n):
+    if n <= 1:
+        return n
 
-for i, table in enumerate(doc.tables):
-    df = read_table(table)
-    tables.append(df)
-
-    print(f"\nTable {i + 1}:")
-    print(df)
+    return fibonacci_recursive(n - 1) + fibonacci_recursive(n - 2)
 
 
-# TABLES 1, 2, 3 = EXECUTION TIME
-# TABLES 4, 5, 6 = MEMORY CONSUMPTION
+def fibonacci_iterative(n):
+    a, b = 0, 1
+
+    for _ in range(n):
+        a, b = b, a + b
+
+    return a
+
+
+def fibonacci_dynamic(n):
+    if n <= 1:
+        return n
+
+    dp = [0] * (n + 1)
+    dp[1] = 1
+
+    for i in range(2, n + 1):
+        dp[i] = dp[i - 1] + dp[i - 2]
+
+    return dp[n]
+
+
+# ============================================================
+# PERFORMANCE MEASUREMENT FUNCTION
 # ============================================================
 
-time_tables = tables[0:3]
-memory_tables = tables[3:6]
+def measure_performance(function, *args):
+    """
+    Measures:
+    1. Execution time in milliseconds
+    2. Peak memory consumption in KB
+    """
+
+    tracemalloc.start()
+
+    start_time = time.perf_counter()
+
+    result = function(*args)
+
+    end_time = time.perf_counter()
+
+    current, peak = tracemalloc.get_traced_memory()
+
+    tracemalloc.stop()
+
+    execution_time = (end_time - start_time) * 1000
+    memory_usage = peak / 1024
+
+    return execution_time, memory_usage, result
+
 
 # ============================================================
-# CONVERT EXECUTION TIME FROM STRING TO FLOAT
+# SORTING PERFORMANCE TEST
 # ============================================================
 
-for df in time_tables:
+sorting_algorithms = {
+    "Bubble Sort": bubble_sort,
+    "Insertion Sort": insertion_sort,
+    "Merge Sort": merge_sort,
+    "Quick Sort": quick_sort
+}
 
-    for column in df.columns[1:]:
+sorting_sizes = [100, 500, 1000, 2000, 5000]
 
-        df[column] = (
-            df[column]
-            .astype(str)
-            .str.replace(" sec", "", regex=False)
-            .astype(float)
+sorting_time = {name: [] for name in sorting_algorithms}
+sorting_memory = {name: [] for name in sorting_algorithms}
+
+print("=" * 70)
+print("SORTING ALGORITHMS PERFORMANCE")
+print("=" * 70)
+
+for size in sorting_sizes:
+
+    # Same input data for fair comparison
+    data = [random.randint(1, 100000) for _ in range(size)]
+
+    print(f"\nInput Size: {size}")
+
+    for name, algorithm in sorting_algorithms.items():
+
+        # Avoid very large input for slow O(n²) algorithms
+        if name in ["Bubble Sort", "Insertion Sort"] and size > 2000:
+            sorting_time[name].append(None)
+            sorting_memory[name].append(None)
+            print(f"{name:<20}: Skipped for large input")
+            continue
+
+        execution_time, memory_usage, result = measure_performance(
+            algorithm, data
         )
 
-    df["Input Size"] = pd.to_numeric(df["Input Size"])
+        sorting_time[name].append(execution_time)
+        sorting_memory[name].append(memory_usage)
 
-# ============================================================
-# CONVERT MEMORY FROM STRING TO FLOAT
-# ============================================================
-
-for df in memory_tables:
-
-    for column in df.columns[1:]:
-
-        df[column] = (
-            df[column]
-            .astype(str)
-            .str.replace("KB", "", regex=False)
-            .str.strip()
-            .astype(float)
-        )
-
-    df["Input Size"] = pd.to_numeric(df["Input Size"])
-
-# ============================================================
-# CALCULATE AVERAGE EXECUTION TIME
-# ============================================================
-
-time_df = time_tables[0].copy()
-
-algorithms = [
-    "Bubble Sort",
-    "Selection Sort",
-    "Insertion Sort",
-    "Merge Sort",
-    "Quick Sort"
-]
-
-for algorithm in algorithms:
-
-    time_df[algorithm] = (
-        time_tables[0][algorithm]
-        + time_tables[1][algorithm]
-        + time_tables[2][algorithm]
-    ) / 3
-
-
-# ============================================================
-# CONVERT MEMORY TABLES TO NUMERIC
-# ============================================================
-
-for df in memory_tables:
-
-    # Convert Input Size
-    df["Input Size"] = pd.to_numeric(
-        df["Input Size"],
-        errors="coerce"
-    )
-
-    # Convert memory columns
-    for column in df.columns[1:]:
-
-        df[column] = (
-            df[column]
-            .astype(str)
-            .str.replace("KB", "", regex=False)
-            .str.strip()
-        )
-
-        df[column] = pd.to_numeric(
-            df[column],
-            errors="coerce"
+        print(
+            f"{name:<20}: "
+            f"Time = {execution_time:.4f} ms, "
+            f"Memory = {memory_usage:.2f} KB"
         )
 
 
 # ============================================================
-# CALCULATE AVERAGE MEMORY CONSUMPTION
+# FIBONACCI PERFORMANCE TEST
 # ============================================================
 
-memory_df = memory_tables[0].copy()
+fibonacci_algorithms = {
+    "Recursive Fibonacci": fibonacci_recursive,
+    "Iterative Fibonacci": fibonacci_iterative,
+    "Dynamic Fibonacci": fibonacci_dynamic
+}
 
-for algorithm in algorithms:
+# Recursive Fibonacci becomes extremely slow for large n
+fib_sizes = [5, 10, 15, 20, 25, 30, 35]
 
-    memory_df[algorithm] = (
-        memory_tables[0][algorithm]
-        + memory_tables[1][algorithm]
-        + memory_tables[2][algorithm]
-    ) / 3
+fib_time = {name: [] for name in fibonacci_algorithms}
+fib_memory = {name: [] for name in fibonacci_algorithms}
+
+print("\n")
+print("=" * 70)
+print("FIBONACCI ALGORITHMS PERFORMANCE")
+print("=" * 70)
+
+for n in fib_sizes:
+
+    print(f"\nFibonacci n = {n}")
+
+    for name, algorithm in fibonacci_algorithms.items():
+
+        execution_time, memory_usage, result = measure_performance(
+            algorithm, n
+        )
+
+        fib_time[name].append(execution_time)
+        fib_memory[name].append(memory_usage)
+
+        print(
+            f"{name:<25}: "
+            f"Time = {execution_time:.4f} ms, "
+            f"Memory = {memory_usage:.2f} KB"
+        )
 
 
 # ============================================================
-# CHECK DATA TYPES
-# ============================================================
-
-print("\nExecution Time Data Types:")
-print(time_df.dtypes)
-
-print("\nMemory Data Types:")
-print(memory_df.dtypes)
-
-# ============================================================
-# SAVE PROCESSED DATA TO CSV
-# ============================================================
-
-time_df.to_csv("average_execution_time.csv", index=False)
-
-memory_df.to_csv("average_memory_consumption.csv", index=False)
-
-# ============================================================
-# GRAPH 1: EXECUTION TIME
+# GRAPH 1: SORTING EXECUTION TIME
 # ============================================================
 
 plt.figure(figsize=(10, 6))
 
-for algorithm in algorithms:
+for name in sorting_algorithms:
 
     plt.plot(
-        time_df["Input Size"],
-        time_df[algorithm],
+        sorting_sizes,
+        sorting_time[name],
         marker="o",
         linewidth=2,
-        label=algorithm
+        label=name
     )
 
-plt.title("Sorting Algorithms - Average Execution Time")
+plt.title("Sorting Algorithms - Execution Time")
 plt.xlabel("Input Size")
-plt.ylabel("Execution Time (seconds)")
-plt.legend()
+plt.ylabel("Execution Time (ms)")
 plt.grid(True, linestyle="--", alpha=0.5)
-
+plt.legend()
 plt.tight_layout()
 
-plt.savefig(
-    "sorting_execution_time.png",
-    dpi=300
-)
-
+plt.savefig("sorting_execution_time.png", dpi=300)
 plt.show()
 
+
 # ============================================================
-# GRAPH 2: MEMORY CONSUMPTION
+# GRAPH 2: SORTING MEMORY CONSUMPTION
 # ============================================================
 
 plt.figure(figsize=(10, 6))
 
-for algorithm in algorithms:
+for name in sorting_algorithms:
 
     plt.plot(
-        memory_df["Input Size"],
-        memory_df[algorithm],
+        sorting_sizes,
+        sorting_memory[name],
         marker="o",
         linewidth=2,
-        label=algorithm
+        label=name
     )
 
-plt.title("Sorting Algorithms - Average Memory Consumption")
+plt.title("Sorting Algorithms - Memory Consumption")
 plt.xlabel("Input Size")
-plt.ylabel("Memory Consumption (KB)")
-plt.legend()
+plt.ylabel("Peak Memory (KB)")
 plt.grid(True, linestyle="--", alpha=0.5)
-
+plt.legend()
 plt.tight_layout()
 
-plt.savefig(
-    "sorting_memory_consumption.png",
-    dpi=300
-)
-
+plt.savefig("sorting_memory_consumption.png", dpi=300)
 plt.show()
 
 
 # ============================================================
-# GRAPH 3: EXECUTION TIME - BAR CHART FOR 5000 INPUT
+# GRAPH 3: FIBONACCI EXECUTION TIME
 # ============================================================
-
-last_row = time_df.iloc[-1]
 
 plt.figure(figsize=(10, 6))
 
-plt.bar(
-    algorithms,
-    [last_row[algorithm] for algorithm in algorithms],
-    color=[
-        "red",
-        "orange",
-        "green",
-        "blue",
-        "purple"
-    ]
-)
+for name in fibonacci_algorithms:
 
-plt.title("Execution Time Comparison for Input Size 5000")
-plt.xlabel("Sorting Algorithm")
-plt.ylabel("Execution Time (seconds)")
-plt.xticks(rotation=20)
-plt.grid(axis="y", linestyle="--", alpha=0.5)
+    plt.plot(
+        fib_sizes,
+        fib_time[name],
+        marker="o",
+        linewidth=2,
+        label=name
+    )
 
+plt.title("Fibonacci Algorithms - Execution Time")
+plt.xlabel("Fibonacci Input (n)")
+plt.ylabel("Execution Time (ms)")
+plt.grid(True, linestyle="--", alpha=0.5)
+plt.legend()
 plt.tight_layout()
 
-plt.savefig(
-    "execution_time_5000.png",
-    dpi=300
-)
-
+plt.savefig("fibonacci_execution_time.png", dpi=300)
 plt.show()
 
-# ============================================================
-# GRAPH 4: MEMORY COMPARISON FOR 5000 INPUT
-# ============================================================
 
-last_memory = memory_df.iloc[-1]
+# ============================================================
+# GRAPH 4: FIBONACCI MEMORY CONSUMPTION
+# ============================================================
 
 plt.figure(figsize=(10, 6))
 
-plt.bar(
-    algorithms,
-    [last_memory[algorithm] for algorithm in algorithms],
-    color=[
-        "red",
-        "orange",
-        "green",
-        "blue",
-        "purple"
-    ]
-)
+for name in fibonacci_algorithms:
 
-plt.title("Memory Consumption Comparison for Input Size 5000")
-plt.xlabel("Sorting Algorithm")
-plt.ylabel("Memory Consumption (KB)")
-plt.xticks(rotation=20)
-plt.grid(axis="y", linestyle="--", alpha=0.5)
+    plt.plot(
+        fib_sizes,
+        fib_memory[name],
+        marker="o",
+        linewidth=2,
+        label=name
+    )
 
+plt.title("Fibonacci Algorithms - Memory Consumption")
+plt.xlabel("Fibonacci Input (n)")
+plt.ylabel("Peak Memory (KB)")
+plt.grid(True, linestyle="--", alpha=0.5)
+plt.legend()
 plt.tight_layout()
 
-plt.savefig(
-    "memory_5000.png",
-    dpi=300
-)
-
+plt.savefig("fibonacci_memory_consumption.png", dpi=300)
 plt.show()
+
+# ============================================================
+# FINAL SUMMARY TABLE
+# ============================================================
+
+print("\n")
+print("=" * 70)
+print("ALGORITHM COMPLEXITY SUMMARY")
+print("=" * 70)
+
+print("""
++----------------------+--------------+---------------+
+| Algorithm            | Time         | Extra Space   |
++----------------------+--------------+---------------+
+| Bubble Sort          | O(n²)        | O(1)          |
+| Insertion Sort       | O(n²)        | O(1)          |
+| Merge Sort           | O(n log n)   | O(n)          |
+| Quick Sort           | O(n log n)*  | O(n)*         |
+| Recursive Fibonacci  | O(2^n)       | O(n)          |
+| Iterative Fibonacci  | O(n)         | O(1)          |
+| Dynamic Fibonacci    | O(n)        | O(n)          |
++----------------------+--------------+---------------+
+
+* Average-case complexity for Quick Sort.
+""")
