@@ -1,10 +1,9 @@
-pip install streamlit networkx
+pip install networkx
 
 #it is used to generate graph in the VS Code Jupyter Notebook
 %matplotlib inline
 
 #Implementing the library
-import streamlit as st
 import networkx as nx
 import matplotlib.pyplot as plt
 import pandas as pd
